@@ -1,0 +1,9 @@
+{
+  "name": "Flutter Headless DevEnvironment",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "appPort": [22],
+  "customizations": {}
+}
+
