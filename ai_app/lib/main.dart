@@ -57,9 +57,18 @@ class _ChatScreenState extends State<ChatScreen> {
   // Bring Your Key state variable
   String _apiKey = '';
 
+  // Model selection state
+  final List<String> _models = [
+    'openrouter/free',
+    'nvidia/nemotron-3.5-lightning:free',
+    'thinkingmachines/inkling:free',
+  ];
+  late String _selectedModel;
+
   @override
   void initState() {
     super.initState();
+    _selectedModel = _models.first;
     _loadApiKey();
   }
 
@@ -87,7 +96,16 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  // Dialog for entering/updating the Bring Your Key (BYK) token
+  // Clear API key from local storage
+  Future<void> _clearApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('openrouter_api_key');
+    setState(() {
+      _apiKey = '';
+    });
+  }
+
+  // Dialog for entering, updating, or clearing the Bring Your Key (BYK) token
   void _showApiKeyDialog({bool isInitialSetup = false}) {
     final TextEditingController keyController = TextEditingController(text: _apiKey);
     
@@ -117,6 +135,18 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
         actions: [
+          if (_apiKey.isNotEmpty)
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              onPressed: () {
+                _clearApiKey();
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('API Key cleared successfully!')),
+                );
+              },
+              child: const Text('Clear Key'),
+            ),
           if (!isInitialSetup)
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -166,7 +196,7 @@ class _ChatScreenState extends State<ChatScreen> {
           'X-Title': 'Flutter Material 3 AI App',
         },
         body: jsonEncode({
-          'model': 'openrouter/free',
+          'model': _selectedModel,
           'messages': [
             {'role': 'user', 'content': text}
           ],
@@ -294,32 +324,78 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           SafeArea(
             child: Container(
-              padding: const EdgeInsets.all(12.0),
+              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
               color: colorScheme.surface,
-              child: Row(
+              child: Column(
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: InputDecoration(
-                        hintText: _apiKey.isEmpty ? 'Set API key to chat...' : 'Ask anything...',
-                        filled: true,
-                        fillColor: colorScheme.surfaceContainerHighest,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(30),
-                          borderSide: BorderSide.none,
+                  // Model Selector Dropdown Bar
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.psychology, size: 20, color: colorScheme.primary),
+                        const SizedBox(width: 8),
+                        const Text('Model: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Expanded(
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _selectedModel,
+                              isExpanded: true,
+                              items: _models.map((String model) {
+                                return DropdownMenuItem<String>(
+                                  value: model,
+                                  child: Text(
+                                    model,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (String? newValue) {
+                                if (newValue != null) {
+                                  setState(() {
+                                    _selectedModel = newValue;
+                                  });
+                                }
+                              },
+                            ),
+                          ),
                         ),
-                      ),
-                      onSubmitted: (_) => _sendMessage(),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: _isLoading ? null : _sendMessage,
-                    icon: const Icon(Icons.send_rounded),
-                    iconSize: 22,
+                  const SizedBox(height: 8),
+                  // Chat Input Field and Send Button
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _controller,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: InputDecoration(
+                            hintText: _apiKey.isEmpty ? 'Set API key to chat...' : 'Ask anything...',
+                            filled: true,
+                            fillColor: colorScheme.surfaceContainerHighest,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          onSubmitted: (_) => _sendMessage(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton.filled(
+                        onPressed: _isLoading ? null : _sendMessage,
+                        icon: const Icon(Icons.send_rounded),
+                        iconSize: 22,
+                      ),
+                    ],
                   ),
                 ],
               ),
